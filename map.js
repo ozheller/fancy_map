@@ -2,8 +2,8 @@
 
 (function ($) {
   // Add basemap tiles and attribution.
-  var baseLayer = L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="http://cartodb.com/attributions">CartoDB</a>'
+  var baseLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://cartodb.com/attributions">CartoDB</a>'
   });
 
   // Add Project points.
@@ -21,7 +21,9 @@
       zoomControl: false,
       doubleClickZoom: false,
       center: [41.643095, -96.0938637],
-      zoom: 4
+      zoom: 4,
+      zoomDelta: 0.25,
+      zoomSnap: 0
     });
   }
   else {
@@ -30,7 +32,9 @@
       zoomControl: false,
       doubleClickZoom: false,
       center: [37.643095, -93.0938637],
-      zoom: 3.1
+      zoom: 3.1,
+      zoomDelta: 0.25,
+      zoomSnap: 0
     });
   }
 
@@ -72,7 +76,8 @@
     iconUrl: '/themes/contrib/bridge/images/leaflet/listing-pin-active.png',
     iconRetinaUrl: '/themes/contrib/bridge/images/leaflet/listing-pin-active-2x.png',
     // iconSize: [44, 50], Original
-    iconSize: [44, 50]
+    iconSize: [44, 50],
+    iconAnchor: [22, 60]
   });
   var inactiveContentIcon = new contentIcon({
     iconUrl: '/themes/contrib/bridge/images/leaflet/listing-pin-inactive.png',
@@ -80,14 +85,15 @@
   });
   // Icons for Deactive Project Points
   var deactiveContentIcon = new contentIcon({
-    iconUrl: '/themes/contrib/bridge/images/leaflet/pmp-marker-icon-green.png',
-    iconRetinaUrl: '/themes/contrib/bridge/images/leaflet/pmp-marker-icon-green-2x.png',
+    iconUrl: '/themes/contrib/bridge/images/leaflet/listing-pin-active-gray.png',
+    iconRetinaUrl: '/themes/contrib/bridge/images/leaflet/listing-pin-active-gray-2x.png',
     // iconSize: [44, 50], Original
-    iconSize: [44, 50]
+    iconSize: [44, 50],
+    iconAnchor: [22, 60]
   });
   var deinactiveContentIcon = new contentIcon({
-    iconUrl: '/themes/contrib/bridge/images/leaflet/marker-icon.png',
-    iconRetinaUrl: '/themes/contrib/bridge/images/leaflet/marker-icon-2x.png'
+    iconUrl: '/themes/contrib/bridge/images/leaflet/listing-pin-inactive-gray.png',
+    iconRetinaUrl: '/themes/contrib/bridge/images/leaflet/listing-pin-inactive-gray-2x.png'
   });
 
   // Get and save the properties information on page load
@@ -115,38 +121,70 @@
           // Populate sidebar with dynamic content.
           $('div.sidebarContent').html(feature.properties.description);
           var zm = e.target._map._zoom;
-          var cM = map.project(e.latlng);
+          var origLoc = e.latlng;
+          var mobZmLvl = feature.properties.field_mobile_zlevel;
+          var zmlvl = feature.properties.field_zoom_level;
+          var mobZmLoc = [
+            feature.properties.field_mobile_location,
+            feature.properties.field_mobile_location_1
+          ];
+          var zmloc = [
+            feature.properties.field_zoom_location,
+            feature.properties.field_zoom_location_1
+          ];
           // var offset = map.getSize();
 
-          if (zm < 10) {
-            screenWidth = $(window).width();
-            if (screenWidth > 991) {
-              // Zoom in to the state view from the North America view.
-              map.setView(map.unproject(cM), 10, {animate: true});
-            }
-            else {
-              map.setView(map.unproject(cM), 8, {animate: true});
-            }
-            // Check to see if the state icons are visible.
-            if ($('.states').is(':visible')) {
-              // Generates and loads the state menu items that appear when zoomed in
-              $.getJSON('/map-terms', function (data) {
-                addDataToMapMenu(data, map, stateLink);
-              });
-              $('.states').hide();
-              $('.statemenu').addClass('is-info-active');
-              $('.sidebarContent').addClass('is-info-active');
-            }
-            // Loads the map content after a state is selected.
-            // Uses previously loaded data if possible.
-            if (land == 'features') {
-              addDataToMapContent(land, map, new contentIcon());
+          screenWidth = $(window).outerWidth();
+          if (screenWidth > 991) {
+            // Zoom in to the state view from the North America view.
+            if (feature.properties.field_zoom_location.length > 0) {
+              if (zmlvl > 0) {
+                map.setView(zmloc, zmlvl, {animate: true});
+              } else {
+                map.setView(zmloc, 10, {animate: true});
+              }
             } else {
-              $.getJSON('/map-content', function (data) {
-                land = data;
-                addDataToMapContent(land, map, new contentIcon());
-              });
+              if (zmlvl > 0) {
+                map.setView(origLoc, zmlvl, {animate: true});
+              } else {
+                map.setView(origLoc, 10, {animate: true});
+              }
             }
+          }
+          else {
+            if (feature.properties.field_mobile_location.length > 0) {
+              if (mobZmLvl > 0) {
+                map.setView(mobZmLoc, mobZmLvl, {animate: true});
+              } else {
+                map.setView(mobZmLoc, 8, {animate: true});
+              }
+            } else {
+              if (mobZmLvl > 0) {
+                map.setView(origLoc, mobZmLvl, {animate: true});
+              } else {
+                map.setView(origLoc, 8, {animate: true});
+              }
+            }
+          }
+          // Check to see if the state icons are visible.
+          if ($('.states').is(':visible')) {
+            // Generates and loads the state menu items that appear when zoomed in
+            $.getJSON('/map-terms', function (data) {
+              addDataToMapMenu(data, map, stateLink);
+            });
+            $('.states').hide();
+            $('.statemenu').addClass('is-info-active');
+            $('.sidebarContent').addClass('is-info-active');
+          }
+          // Loads the map content after a state is selected.
+          // Uses previously loaded data if possible.
+          if (land == 'features') {
+            addDataToMapContent(land, map, new contentIcon());
+          } else {
+            $.getJSON('/map-content', function (data) {
+              land = data;
+              addDataToMapContent(land, map, new contentIcon());
+            });
           }
         });
       }
@@ -173,17 +211,56 @@
             lastpoint.setIcon(inactiveContentIcon);
           }
           $('.statemenu li').removeClass('is-menu-active');
-          var thisLat = feature.geometry.coordinates[1];
-          var thisLon = feature.geometry.coordinates[0];
-          screenWidth = $(window).width();
+          var zmlvl = feature.properties.field_zoom_level;
+          var mobZmLvl = feature.properties.field_mobile_zlevel;
+          var origLoc = [
+            feature.geometry.coordinates[1],
+            feature.geometry.coordinates[0]
+          ];
+          var mobZmLoc = [
+            feature.properties.field_mobile_location,
+            feature.properties.field_mobile_location_1
+          ];
+          var zmloc = [
+            feature.properties.field_zoom_location,
+            feature.properties.field_zoom_location_1
+          ];
+          // var offset = map.getSize();
+          screenWidth = $(window).outerWidth();
           if (screenWidth > 991) {
-            map.setView([thisLat, thisLon], 10, {animate: true});
+            // Zoom in to the state view from the North America view.
+            if (feature.properties.field_zoom_location.length > 0) {
+              if (zmlvl > 0) {
+                map.setView(zmloc, zmlvl, {animate: true});
+              } else {
+                map.setView(zmloc, 10, {animate: true});
+              }
+            } else {
+              if (zmlvl > 0) {
+                map.setView(origLoc, zmlvl, {animate: true});
+              } else {
+                map.setView(origLoc, 10, {animate: true});
+              }
+            }
           }
           else {
-            map.setView([thisLat, thisLon], 8, {animate: true});
+            if (feature.properties.field_mobile_location.length > 0) {
+              if (mobZmLvl > 0) {
+                map.setView(mobZmLoc, mobZmLvl, {animate: true});
+              } else {
+                map.setView(mobZmLoc, 8, {animate: true});
+              }
+            } else {
+              if (mobZmLvl > 0) {
+                map.setView(origLoc, mobZmLvl, {animate: true});
+              } else {
+                map.setView(origLoc, 8, {animate: true});
+              }
+            }
           }
           $('div.sidebarContent').html(feature.properties.description);
           $(this).addClass('is-menu-active');
+
         });
       }
     });
@@ -265,6 +342,19 @@
 
   $.getJSON('/map-terms', function (data) {
     addDataToMapState(data, map);
+  });
+
+  /**
+   * Helper events to find good zoom level and lat/long for viewing
+   */
+  map.on("click", function (event) {
+    console.log(event.latlng);
+  });
+
+  // Add zoom level to console to better get region zoom level
+  map.on('zoomend', function() {
+    var zoomeLev = map.getZoom();
+    console.log(zoomeLev);
   });
 
 })(jQuery);
